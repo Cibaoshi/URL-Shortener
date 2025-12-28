@@ -14,7 +14,6 @@ import (
 	"time"
 )
 
-// UrlStore хранит маппинг ссылок
 type UrlStore struct {
 	urls map[string]string
 	mu   sync.RWMutex
@@ -33,7 +32,7 @@ type ShortenResponse struct {
 }
 
 func main() {
-	// Запуск HTTP сервера в фоновом режиме
+
 	go func() {
 		http.HandleFunc("/shorten", shortenHandler)
 		http.HandleFunc("/", redirectHandler)
@@ -43,10 +42,8 @@ func main() {
 		}
 	}()
 
-	// Небольшая пауза для инициализации сервера
 	time.Sleep(100 * time.Millisecond)
 
-	// Запуск консольного интерфейса
 	runConsoleUI()
 }
 
@@ -57,6 +54,7 @@ func runConsoleUI() {
 	fmt.Println("\033[36m║\033[1;33m          URL SHORTENER — КОНСОЛЬНАЯ ПАНЕЛЬ           \033[0m\033[36m║\033[0m")
 	fmt.Println("\033[36m╠══════════════════════════════════════════════════════╣\033[0m")
 	fmt.Println("\033[36m║\033[0m Сервер активен на: \033[32mhttp://localhost:8080\033[0m             \033[36m║\033[0m")
+	fmt.Println("\033[36m║\033[0m Логи переходов будут отображаться здесь               \033[36m║\033[0m") // Добавили инфо
 	fmt.Println("\033[36m║\033[0m Для выхода нажмите: \033[31mCtrl+C\033[0m                           \033[36m║\033[0m")
 	fmt.Println("\033[36m╚══════════════════════════════════════════════════════╝\033[0m")
 
@@ -74,7 +72,6 @@ func runConsoleUI() {
 		code := saveUrl(input)
 		shortUrl := fmt.Sprintf("http://localhost:8080/%s", code)
 
-		// Вывод результата в рамке
 		fmt.Println("\033[32m  └─ Готово!\033[0m")
 		fmt.Printf("\033[1;33m     %s\033[0m\n", shortUrl)
 	}
@@ -132,9 +129,14 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	store.mu.RUnlock()
 
 	if !ok {
+		// Лог ошибки (красный)
+		fmt.Printf("\n\033[31m[LOG %s] Ошибка: код %s не найден\033[0m\n", time.Now().Format("15:04:05"), code)
 		http.NotFound(w, r)
 		return
 	}
+
+	// Лог успешного перехода (синий)
+	fmt.Printf("\n\033[34m[LOG %s] Переход по коду %s -> %s\033[0m\n", time.Now().Format("15:04:05"), code, originalURL)
 
 	http.Redirect(w, r, originalURL, http.StatusFound)
 }
