@@ -15,12 +15,14 @@ import (
 )
 
 type UrlStore struct {
-	urls map[string]string
-	mu   sync.RWMutex
+	urls   map[string]string
+	clicks map[string]int // Добавили хранилище для кликов
+	mu     sync.RWMutex
 }
 
 var store = UrlStore{
-	urls: make(map[string]string),
+	urls:   make(map[string]string),
+	clicks: make(map[string]int), // Инициализация счетчика
 }
 
 type ShortenRequest struct {
@@ -32,7 +34,6 @@ type ShortenResponse struct {
 }
 
 func main() {
-
 	go func() {
 		http.HandleFunc("/shorten", shortenHandler)
 		http.HandleFunc("/", redirectHandler)
@@ -43,7 +44,6 @@ func main() {
 	}()
 
 	time.Sleep(100 * time.Millisecond)
-
 	runConsoleUI()
 }
 
@@ -53,19 +53,25 @@ func runConsoleUI() {
 	fmt.Println("\033[36m╔══════════════════════════════════════════════════════╗\033[0m")
 	fmt.Println("\033[36m║\033[1;33m          URL SHORTENER — КОНСОЛЬНАЯ ПАНЕЛЬ           \033[0m\033[36m║\033[0m")
 	fmt.Println("\033[36m╠══════════════════════════════════════════════════════╣\033[0m")
-	fmt.Println("\033[36m║\033[0m Сервер активен на: \033[32mhttp://localhost:8080\033[0m             \033[36m║\033[0m")
-	fmt.Println("\033[36m║\033[0m Логи переходов будут отображаться здесь              \033[36m║\033[0m") // Добавили инфо
+	fmt.Println("\033[36m║\033[0m Сервер: \033[32mhttp://localhost:8080\033[0m                        \033[36m║\033[0m")
+	fmt.Println("\033[36m║\033[0m Введите \033[1;35mstat\033[0m для просмотра статистики                \033[36m║\033[0m")
 	fmt.Println("\033[36m║\033[0m Для выхода нажмите: \033[31mCtrl+C\033[0m                           \033[36m║\033[0m")
 	fmt.Println("\033[36m╚══════════════════════════════════════════════════════╝\033[0m")
 
 	for {
-		fmt.Print("\n\033[1mВведите URL:\033[0m ")
+		fmt.Print("\n\033[1mВведите URL или команду:\033[0m ")
 		if !scanner.Scan() {
 			break
 		}
 
 		input := strings.TrimSpace(scanner.Text())
 		if input == "" {
+			continue
+		}
+
+		// Обработка команды статистики
+		if input == "stat" {
+			showStatistics()
 			continue
 		}
 
@@ -77,10 +83,29 @@ func runConsoleUI() {
 	}
 }
 
+// Функция для отображения статистики
+func showStatistics() {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
+	if len(store.urls) == 0 {
+		fmt.Println("\033[31mСтатистика пуста. Сначала создайте ссылки.\033[0m")
+		return
+	}
+
+	fmt.Println("\n\033[1;35m--- ТЕКУЩАЯ СТАТИСТИКА --- \033[0m")
+	fmt.Printf("%-8s | %-10s | %s\n", "Код", "Клики", "Оригинальный URL")
+	fmt.Println("------------------------------------------------------")
+	for code, url := range store.urls {
+		fmt.Printf("%-8s | %-10d | %s\n", code, store.clicks[code], url)
+	}
+}
+
 func saveUrl(originalURL string) string {
 	code := generateShortCode()
 	store.mu.Lock()
 	store.urls[code] = originalURL
+	store.clicks[code] = 0 // Устанавливаем начальное значение кликов
 	store.mu.Unlock()
 	return code
 }
@@ -124,19 +149,21 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 
 	code := r.URL.Path[1:]
 
-	store.mu.RLock()
+	store.mu.Lock() // Используем Lock, так как будем обновлять счетчик
 	originalURL, ok := store.urls[code]
-	store.mu.RUnlock()
+	if ok {
+		store.clicks[code]++ // Увеличиваем счетчик при каждом переходе
+	}
+	store.mu.Unlock()
 
 	if !ok {
-		// Лог ошибки (красный)
 		fmt.Printf("\n\033[31m[LOG %s] Ошибка: код %s не найден\033[0m\n", time.Now().Format("15:04:05"), code)
 		http.NotFound(w, r)
 		return
 	}
 
-	// Лог успешного перехода (синий)
-	fmt.Printf("\n\033[34m[LOG %s] Переход по коду %s -> %s\033[0m\n", time.Now().Format("15:04:05"), code, originalURL)
+	fmt.Printf("\n\033[34m[LOG %s] Переход по коду %s -> %s (Кликов: %d)\033[0m\n",
+		time.Now().Format("15:04:05"), code, originalURL, store.clicks[code])
 
 	http.Redirect(w, r, originalURL, http.StatusFound)
 }
