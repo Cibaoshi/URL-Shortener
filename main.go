@@ -52,11 +52,16 @@ func main() {
 
 func runConsoleUI() {
 	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Println("--- Сервер запущен на :8080 ---")
-	fmt.Println("Введите ссылку и нажмите Enter для сокращения (или Ctrl+C для выхода):")
+
+	fmt.Println("\033[36m╔══════════════════════════════════════════════════════╗\033[0m")
+	fmt.Println("\033[36m║\033[1;33m          URL SHORTENER — КОНСОЛЬНАЯ ПАНЕЛЬ           \033[0m\033[36m║\033[0m")
+	fmt.Println("\033[36m╠══════════════════════════════════════════════════════╣\033[0m")
+	fmt.Println("\033[36m║\033[0m Сервер активен на: \033[32mhttp://localhost:8080\033[0m             \033[36m║\033[0m")
+	fmt.Println("\033[36m║\033[0m Для выхода нажмите: \033[31mCtrl+C\033[0m                           \033[36m║\033[0m")
+	fmt.Println("\033[36m╚══════════════════════════════════════════════════════╝\033[0m")
 
 	for {
-		fmt.Print("> ")
+		fmt.Print("\n\033[1mВведите URL:\033[0m ")
 		if !scanner.Scan() {
 			break
 		}
@@ -67,7 +72,11 @@ func runConsoleUI() {
 		}
 
 		code := saveUrl(input)
-		fmt.Printf("Короткая ссылка: http://localhost:8080/%s\n\n", code)
+		shortUrl := fmt.Sprintf("http://localhost:8080/%s", code)
+
+		// Вывод результата в рамке
+		fmt.Println("\033[32m  └─ Готово!\033[0m")
+		fmt.Printf("\033[1;33m     %s\033[0m\n", shortUrl)
 	}
 }
 
