@@ -31,4 +31,11 @@ The service is written using only the standard Go library. The data will be stor
 - Background process: The web server for redirects runs in parallel and does not block the entry of new links.
 
 - Control: To finish, simply press `Ctrl+C`.
+# 6. Monitoring and statistics:
+
+- Live logging: Each action (successful transition or 404 error) is instantly displayed in the console with the time, link code, and target URL.
+
+- Click counter: The system automatically records the number of clicks for each link created.
+
+- `Stat` command: Enter the `stat` command directly into the management console to get a detailed table with a list of all active links and their popularity.
 #
