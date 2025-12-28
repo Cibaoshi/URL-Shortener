@@ -22,4 +22,13 @@ The service is written using only the standard Go library. The data will be stor
   3. Client -> accesses the short URL -> Server (searches in memory).
 
   4. Server -> tells the browser: ‘Go to this address’ (Redirect) -> Target site.
+# 5. Interface (CLI):
+
+-  Data input: Performed via the standard input stream (`stdin`) directly in the terminal.
+
+- Generation: After entering a long link, the programme instantly outputs the finished short link to the console.
+
+- Background process: The web server for redirects runs in parallel and does not block the entry of new links.
+
+- Control: To finish, simply press `Ctrl+C`.
 #
