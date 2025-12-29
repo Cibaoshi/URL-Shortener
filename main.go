@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -10,9 +11,11 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"os/signal"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -106,17 +109,38 @@ p  { margin:0; color:#cbd5f5; }
 `))
 
 func main() {
-	go func() {
-		http.HandleFunc("/shorten", shortenHandler)
-		http.HandleFunc("/", redirectHandler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/shorten", shortenHandler)
+	mux.HandleFunc("/", redirectHandler)
 
-		if err := http.ListenAndServe(":8080", nil); err != nil {
-			log.Fatal(err)
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: mux,
+	}
+
+	go func() {
+		log.Println("[INFO] HTTP server started on :8080")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("[ERROR] server error: %v", err)
 		}
 	}()
 
-	time.Sleep(100 * time.Millisecond)
-	runConsoleUI()
+	go runConsoleUI()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+
+	log.Println("[INFO] shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("[ERROR] shutdown failed: %v", err)
+	}
+
+	log.Println("[INFO] server stopped gracefully")
 }
 
 func runConsoleUI() {
@@ -133,7 +157,7 @@ func runConsoleUI() {
 	for {
 		fmt.Print("\n\033[1mВведите URL или команду:\033[0m ")
 		if !scanner.Scan() {
-			break
+			return
 		}
 
 		input := strings.TrimSpace(scanner.Text())
