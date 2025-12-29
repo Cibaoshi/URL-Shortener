@@ -38,4 +38,6 @@ The service is written using only the standard Go library. The data will be stor
 - Click counter: The system automatically records the number of clicks for each link created.
 
 - `Stat` command: Enter the `stat` command directly into the management console to get a detailed table with a list of all active links and their popularity.
+
+- Basic commands: `stat` - basic statistics, `stat` `[code/Example: Abc123]` - statistics for a specific link, `top <n>` (Example: top 3) - top links by clicks.
 #
