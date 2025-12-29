@@ -56,21 +56,9 @@ type AppError struct {
 }
 
 var (
-	ErrNotFound = AppError{
-		Code:    404,
-		Title:   "404 — Not Found",
-		Message: "Ссылка не существует или была удалена",
-	}
-	ErrMethod = AppError{
-		Code:    405,
-		Title:   "405 — Method Not Allowed",
-		Message: "Используется неподдерживаемый HTTP метод",
-	}
-	ErrBadRequest = AppError{
-		Code:    400,
-		Title:   "400 — Bad Request",
-		Message: "Некорректный запрос",
-	}
+	ErrNotFound   = AppError{404, "404 — Not Found", "Ссылка не существует или была удалена"}
+	ErrMethod     = AppError{405, "405 — Method Not Allowed", "Используется неподдерживаемый HTTP метод"}
+	ErrBadRequest = AppError{400, "400 — Bad Request", "Некорректный запрос"}
 )
 
 var errorTpl = template.Must(template.New("error").Parse(`
@@ -80,35 +68,25 @@ var errorTpl = template.Must(template.New("error").Parse(`
 <meta charset="UTF-8">
 <title>{{.Title}}</title>
 <style>
-body {
-	background:#0f172a;
-	color:#e5e7eb;
-	font-family: monospace;
-	display:flex;
-	align-items:center;
-	justify-content:center;
-	height:100vh;
-}
-.box {
-	border:1px solid #334155;
-	padding:24px 32px;
-	border-radius:8px;
-	background:#020617;
-}
-h1 { color:#38bdf8; margin:0 0 8px; }
-p  { margin:0; color:#cbd5f5; }
+body{background:#0f172a;color:#e5e7eb;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh}
+.box{border:1px solid #334155;padding:24px 32px;border-radius:8px;background:#020617}
+h1{color:#38bdf8;margin:0 0 8px}
 </style>
 </head>
 <body>
 <div class="box">
-	<h1>{{.Title}}</h1>
-	<p>{{.Message}}</p>
+<h1>{{.Title}}</h1>
+<p>{{.Message}}</p>
 </div>
 </body>
 </html>
 `))
 
 func main() {
+	// 🔹 серверные логи → stderr
+	log.SetOutput(os.Stderr)
+	log.SetFlags(log.Ltime)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/shorten", shortenHandler)
 	mux.HandleFunc("/", redirectHandler)
@@ -119,9 +97,9 @@ func main() {
 	}
 
 	go func() {
-		log.Println("[INFO] HTTP server started on :8080")
+		log.Println("server started on :8080")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("[ERROR] server error: %v", err)
+			log.Fatalf("server error: %v", err)
 		}
 	}()
 
@@ -131,31 +109,27 @@ func main() {
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
 
-	log.Println("[INFO] shutting down server...")
+	log.Println("shutting down server")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	_ = server.Shutdown(ctx)
 
-	if err := server.Shutdown(ctx); err != nil {
-		log.Printf("[ERROR] shutdown failed: %v", err)
-	}
-
-	log.Println("[INFO] server stopped gracefully")
+	log.Println("server stopped")
 }
 
 func runConsoleUI() {
 	scanner := bufio.NewScanner(os.Stdin)
 
 	fmt.Println("\033[36m╔══════════════════════════════════════════════════════╗\033[0m")
-	fmt.Println("\033[36m║\033[1;33m          URL SHORTENER — КОНСОЛЬНАЯ ПАНЕЛЬ           \033[0m\033[36m║\033[0m")
+	fmt.Println("\033[36m║\033[1;33m          URL SHORTENER — КОНСОЛЬ                     \033[0m\033[36m║\033[0m")
 	fmt.Println("\033[36m╠══════════════════════════════════════════════════════╣\033[0m")
 	fmt.Println("\033[36m║\033[0m Сервер: \033[32mhttp://localhost:8080\033[0m                        \033[36m║\033[0m")
 	fmt.Println("\033[36m║\033[0m Команды: stat | stat <code> | top <n>                \033[36m║\033[0m")
-	fmt.Println("\033[36m║\033[0m Для выхода нажмите: \033[31mCtrl+C\033[0m                           \033[36m║\033[0m")
 	fmt.Println("\033[36m╚══════════════════════════════════════════════════════╝\033[0m")
 
 	for {
-		fmt.Print("\n\033[1mВведите URL или команду:\033[0m ")
+		fmt.Print("\n\033[1mВведите URL или команду, запуск сервера :\033[0m ")
 		if !scanner.Scan() {
 			return
 		}
