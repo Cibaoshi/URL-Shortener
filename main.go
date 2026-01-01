@@ -10,6 +10,7 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"sort"
@@ -18,6 +19,8 @@ import (
 	"syscall"
 	"time"
 )
+
+// --- Структуры данных ---
 
 type ClickInfo struct {
 	Time time.Time `json:"time"`
@@ -55,6 +58,8 @@ type AppError struct {
 	Message string
 }
 
+// --- Ошибки и шаблоны ---
+
 var (
 	ErrNotFound   = AppError{404, "404 — Not Found", "Ссылка не существует или была удалена"}
 	ErrMethod     = AppError{405, "405 — Method Not Allowed", "Используется неподдерживаемый HTTP метод"}
@@ -81,6 +86,8 @@ h1{color:#38bdf8;margin:0 0 8px}
 </body>
 </html>
 `))
+
+// --- Main ---
 
 func main() {
 	// 🔹 серверные логи → stderr
@@ -117,6 +124,8 @@ func main() {
 
 	log.Println("server stopped")
 }
+
+// --- UI и Логика консоли ---
 
 func runConsoleUI() {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -156,7 +165,14 @@ func runConsoleUI() {
 			continue
 		}
 
-		code := saveUrl(input)
+		// Валидация введенного в консоль URL
+		cleanURL, err := validateURL(input)
+		if err != nil {
+			fmt.Printf("\033[31mОшибка валидации: %v\033[0m\n", err)
+			continue
+		}
+
+		code := saveUrl(cleanURL)
 		fmt.Printf("\033[32mГотово: http://localhost:8080/%s\033[0m\n", code)
 	}
 }
@@ -227,6 +243,8 @@ func showTop(nStr string) {
 	}
 }
 
+// --- Бизнес-логика ---
+
 func saveUrl(originalURL string) string {
 	for {
 		code := generateShortCode()
@@ -253,6 +271,51 @@ func generateShortCode() string {
 	return string(b)
 }
 
+// validateURL проверяет и нормализует URL
+func validateURL(rawURL string) (string, error) {
+	rawURL = strings.TrimSpace(rawURL)
+
+	if rawURL == "" {
+		return "", fmt.Errorf("пустой URL")
+	}
+
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("некорректный формат")
+	}
+
+	// Если пользователь ввел "google.com" без http
+	if u.Scheme == "" && u.Host == "" {
+		// Проверяем, есть ли точка (признак домена), иначе это просто мусор
+		if !strings.Contains(rawURL, ".") {
+			return "", fmt.Errorf("это не похоже на адрес сайта (нет точки)")
+		}
+		rawURL = "https://" + rawURL
+		u, _ = url.Parse(rawURL) // перепарсиваем с протоколом
+	}
+
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return "", fmt.Errorf("поддерживается только http и https")
+	}
+
+	if u.Host == "" {
+		return "", fmt.Errorf("отсутствует домен")
+	}
+
+	// Проверка на наличие точки в хосте (защита от "http://test")
+	if !strings.Contains(u.Host, ".") && u.Host != "localhost" {
+		return "", fmt.Errorf("некорректное доменное имя")
+	}
+
+	if u.Host == "localhost:8080" {
+		return "", fmt.Errorf("нельзя сокращать ссылки этого сервиса")
+	}
+
+	return rawURL, nil
+}
+
+// --- HTTP Handlers ---
+
 func shortenHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		renderError(w, ErrMethod)
@@ -265,8 +328,21 @@ func shortenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	code := saveUrl(req.URL)
+	// Валидация
+	cleanURL, err := validateURL(req.URL)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	code := saveUrl(cleanURL)
+
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(ShortenResponse{
 		ShortURL: "http://localhost:8080/" + code,
 	})
