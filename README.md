@@ -1,43 +1,42 @@
 # URL-Shortener-on-Go
-# 1. Architecture: How does it work?
+# 1. Features:
 
-In its simplest form, the service consists of two main parts (endpoints):
+- API: Quick link shortening via JSON POST requests.
 
-- POST `/shorten`: The user sends a long link, the service generates a unique short code (e.g., `abc12`) and saves the ‘code-link’ pair in the database.
+- Web UI: Modern user interface (HTML/JS).
 
-- GET `/{code}`: The user clicks on the short link (e.g., `http://localhost:8080/abc12`), the service searches for the code in the database and performs an HTTP redirect to the original long link.
+- Console UI: Management and statistics directly in the terminal (`stat`, `top` commands).
 
-# 2. Choosing a shortening algorithm
-Base62 Encoding: We take a unique ID from the database (1, 2, 3...) and convert it to a 62-digit number system (digits 0-9, letters a-z, A-Z). This guarantees uniqueness and no collisions.
+- Validation: Link verification for correctness and prevention of self-citation.
 
-# 3. Implementation of MVP (Minimal Viable Product)
+- Statistics: Tracking clicks, IP addresses, and visitor User-Agents.
 
-The service is written using only the standard Go library. The data will be stored in memory (in a `map`) so as not to be distracted (for now) by databases.
+# 2. Technical details:
 
-# 4. Final workflow diagram:
-  1. Client -> sends a long URL -> Server (stores it in memory).
+- Go: Clean code without heavy external frameworks.
 
-  2. Server -> returns a short URL -> Client.
+- Concurrent Storage: Thread-safe storage in RAM (In-Memory).
 
-  3. Client -> accesses the short URL -> Server (searches in memory).
+- Vite/Vanilla JS: For frontend (`static` folder).
 
-  4. Server -> tells the browser: ‘Go to this address’ (Redirect) -> Target site.
-# 5. Interface (CLI):
+# 3. Console:
 
--  Data input: Performed via the standard input stream (`stdin`) directly in the terminal.
+- `stat` — general statistics.
 
-- Generation: After entering a long link, the programme instantly outputs the finished short link to the console.
+- `top 5` — top 5 popular links.
 
-- Background process: The web server for redirects runs in parallel and does not block the entry of new links.
+- `just paste the URL` — shortens the link directly in the console.
 
-- Control: To finish, simply press `Ctrl+C`.
-# 6. Monitoring and statistics:
+# 4. Project structure:
 
-- Live logging: Each action (successful transition or 404 error) is instantly displayed in the console with the time, link code, and target URL.
+- `main_block/` — entry point (main.go).
 
-- Click counter: The system automatically records the number of clicks for each link created.
+- `internal/api/` — HTTP server logic and handlers.
 
-- `Stat` command: Enter the `stat` command directly into the management console to get a detailed table with a list of all active links and their popularity.
+- `internal/storage/` — data storage logic and click counter.
 
-- Basic commands: `stat` - basic statistics, `stat` `[code/Example: Abc123]` - statistics for a specific link, `top <n>` (Example: top 3) - top links by clicks.
-#
+- `internal/console/` — interactive console interface.
+
+- `internal/utils/` — code generation and URL validation.
+
+- `static/` — frontend files (HTML, CSS, JS).
